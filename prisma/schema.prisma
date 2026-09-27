@@ -1,0 +1,117 @@
+// SQLite-compatible schema for QuizForge
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                Int      @id @default(autoincrement())
+  name              String
+  email             String   @unique
+  password          String
+  role              String   @default("student") // student, teacher, admin
+  emailVerifiedAt   DateTime? @map("email_verified_at")
+  rememberToken     String?  @map("remember_token")
+  deletedAt         DateTime? @map("deleted_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  exams             Exam[]   @relation("TeacherExams")
+  attempts          Attempt[]
+  aiUsages          AiUsage[]
+  passwordResetToken PasswordResetToken?
+
+  @@map("users")
+}
+
+model Exam {
+  id                  Int      @id @default(autoincrement())
+  teacherId           Int      @map("teacher_id")
+  title               String
+  description         String?
+  durationMinutes     Int      @default(60) @map("duration_minutes")
+  passingScore        Int      @default(70) @map("passing_score")
+  isPublished         Boolean  @default(false) @map("is_published")
+  leaderboardEnabled  Boolean  @default(false) @map("leaderboard_enabled")
+  shuffleQuestions    Boolean  @default(false) @map("shuffle_questions")
+  accessCode          String   @unique @map("access_code")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  teacher             User     @relation("TeacherExams", fields: [teacherId], references: [id], onDelete: Cascade)
+  questions           Question[]
+  attempts            Attempt[]
+
+  @@map("exams")
+}
+
+model Question {
+  id            Int      @id @default(autoincrement())
+  examId        Int      @map("exam_id")
+  question      String
+  type          String   // multiple_choice, true_false, short_answer
+  options       String?  // JSON string for options
+  correctAnswer String   @map("correct_answer")
+  points        Int      @default(1)
+  order         Int      @default(0)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  exam          Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@map("questions")
+}
+
+model Attempt {
+  id          Int       @id @default(autoincrement())
+  examId      Int       @map("exam_id")
+  userId      Int       @map("user_id")
+  answers     String?   // JSON string for answers
+  score       Int?
+  results     String?   // JSON string for results
+  startedAt   DateTime  @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  exam        Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("attempts")
+}
+
+model AiUsage {
+  id               Int      @id @default(autoincrement())
+  userId           Int      @map("user_id")
+  provider         String
+  model            String
+  promptTokens     Int      @map("prompt_tokens")
+  completionTokens Int      @map("completion_tokens")
+  cost             Float
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user             User     @relation(fields: [userId], references: [id])
+
+  @@map("ai_usages")
+}
+
+model PasswordResetToken {
+  email     String   @id
+  token     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user      User?    @relation(fields: [email], references: [email])
+
+  @@map("password_reset_tokens")
+}
